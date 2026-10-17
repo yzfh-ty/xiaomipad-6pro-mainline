@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 """Prepare pinned OS3 inputs on a fresh Linux GitHub Actions runner."""
-import argparse
 import importlib.util
 import json
-import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
@@ -120,14 +118,9 @@ def checkout(url, commit, destination):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--rom-url', default=os.environ.get('ROM_URL'))
-    args = parser.parse_args()
-    if not args.rom_url:
-        parser.error('Supply the pinned Fastboot ROM download URL using ROM_URL')
     lock = stock.table()
     archive = LOCAL / 'downloads' / lock['archive']['name']
-    download(args.rom_url, archive, lock['archive']['sha256'], lock['archive']['bytes'])
+    download(lock['archive']['url'], archive, lock['archive']['sha256'], lock['archive']['bytes'])
     rom = LOCAL / 'roms/liuqin' / lock['rom']
     images = rom / 'images'
     unpack_rom(archive, images)

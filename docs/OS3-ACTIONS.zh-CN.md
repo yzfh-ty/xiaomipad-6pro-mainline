@@ -10,22 +10,21 @@ Ubuntu 仍使用 `kernel/source.json` 固定的主线内核，以及仓库已有
 ## 手动运行
 
 1. 打开自己的主项目 Fork，在 **Actions** 中启用工作流。
-2. 选择 **System image → Run workflow**，分支选 **os3-actions**。
-3. `rom_url` 填写下面这份原厂 Fastboot `.tgz` 的可直连 HTTPS 下载链接。
-   不能填网页、Recovery ZIP、网盘分享页或 Windows 本地路径。
+2. 选择 **System image → Run workflow**，分支选 **main**。
+3. 原厂线刷包下载地址已固定在 `tools/lib/liuqin-rom-images.json`，无需填写链接。
 4. `ubuntu_url` 可留空；如提供镜像，必须与项目固定的 Ubuntu 26.04 ARM64 ISO 逐字节相同。
 5. `kernel_repository` 留空会使用 `你的用户名/linux-sm8450-liuqin`。
    本次对应 `yzfh-ty/linux-sm8450-liuqin`，仍按固定提交构建，而非自动追随分支最新提交。
 6. 点击 **Run workflow**。完成后在该次运行的 **Artifacts** 下载候选安装包和 Android boot 附件。
 
-如果 GitHub 页面没有显示新输入，可用已登录的 GitHub CLI 明确选择分支：
+也可通过已登录的 GitHub CLI 手动运行：
 
 ```sh
 gh workflow run image.yml --repo yzfh-ty/xiaomipad-6pro-mainline \
-  --ref os3-actions -f rom_url='https://你的下载源/原厂包.tgz'
+  --ref main
 ```
 
-工作流文件 `image.yml` 已存在于 Fork 的默认分支；手动调度选择本分支的版本。
+工作流位于 Fork 的默认分支 `main`。
 本流程不自动创建公开 Release，也不自动刷写平板。
 
 ## 固定原厂包
@@ -36,7 +35,11 @@ bytes: 7541014730
 sha256: 9b33c813b7245ef67b1f55555bb3e769de2f13636e9c04f12bfb3788c5337359
 ```
 
-下载地址可以变化，文件身份必须相同。工作流校验归档、9 个镜像、anti_version.txt，
+固定下载地址：
+
+[OS3.0.7.0.VMYCNXM 原厂线刷包](https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com/OS3.0.7.0.VMYCNXM/liuqin_images_OS3.0.7.0.VMYCNXM_20260514.0000.00_15.0_cn_f57d372b08.tgz)
+
+工作流校验归档、9 个镜像、anti_version.txt，
 并逐文件核对 14 个原厂 DTB 和 44 个 DTBO，校验失败即停止。
 原厂归档、super 和私有设备数据不会放进候选安装包。
 

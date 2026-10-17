@@ -2,10 +2,6 @@ name: System image
 on:
   workflow_dispatch:
     inputs:
-      rom_url:
-        description: 'HTTPS URL of the pinned OS3.0.7.0.VMYCNXM Fastboot .tgz'
-        type: string
-        required: true
       ubuntu_url:
         description: 'Optional mirror URL of the exact pinned Ubuntu 26.04 ARM64 desktop ISO'
         type: string
@@ -91,7 +87,6 @@ jobs:
       - name: Prepare OS3, Ubuntu and device components
         working-directory: project
         env:
-          ROM_URL: ${{ inputs.rom_url }}
           UBUNTU_DESKTOP_URL: ${{ inputs.ubuntu_url }}
         run: |
           mkdir -p logs

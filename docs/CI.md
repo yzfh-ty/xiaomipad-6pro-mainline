@@ -1,6 +1,6 @@
 # Builds and Automation
 
-> OS3 fork branch: `System image` is now a manual GitHub-hosted build with ROM download inputs.
+> OS3 fork: `System image` is a manual GitHub-hosted build on `main` with a fixed ROM download URL.
 > See [OS3 Actions instructions](OS3-ACTIONS.zh-CN.md). Artifacts are untested candidates.
 
 ## Kernel Changes
@@ -33,7 +33,7 @@ successful stages. Do not modify sources or inputs while an assembly is running.
 The `System image` workflow is manually dispatched on the selected branch and uploads
 the matching boot image, installer RAM image, rootfs, installer and checksums.
 It defaults to `ubuntu-24.04`, installs dependencies and prepares pinned inputs from
-the supplied stock-ROM URL. It checks for 45 GiB of free space; if unavailable, select
+the stock-ROM URL pinned in `tools/lib/liuqin-rom-images.json`. It checks for 45 GiB of free space; if unavailable, select
 a larger Linux x86-64 runner using repository variable `LIUQIN_IMAGE_RUNNER`.
 The runner must allow noninteractive sudo, ARM64 binfmt and overlay mounts.
 External pull requests never trigger this privileged assembly.

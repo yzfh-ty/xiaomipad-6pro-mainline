@@ -68,6 +68,7 @@
   "status": "OFFLINE_INSPECTED",
   "android_version": 15,
   "archive": {
+    "url": "https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com/OS3.0.7.0.VMYCNXM/liuqin_images_OS3.0.7.0.VMYCNXM_20260514.0000.00_15.0_cn_f57d372b08.tgz",
     "name": "liuqin_images_OS3.0.7.0.VMYCNXM_20260514.0000.00_15.0_cn_f57d372b08.tgz",
     "bytes": 7541014730,
     "sha256": "9b33c813b7245ef67b1f55555bb3e769de2f13636e9c04f12bfb3788c5337359"
