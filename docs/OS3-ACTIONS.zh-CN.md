@@ -59,6 +59,17 @@ Linux x86-64 runner 标签。自托管 runner 不执行预装 SDK 清理，但�
 及其固定 SHA256。AOSP mkbootimg 使用固定 Git 提交和既有脚本内容校验，避免依赖可变的归档封装。
 Ubuntu 板级固件从仓库内的固定清单重建输入布局，不从 OS3 随意替换 Ubuntu 固件。
 
+Python 依赖由 APT 安装，其中 [python3-lz4](https://packages.ubuntu.com/noble/python3-lz4)
+提供 Android ramdisk 补丁需要的 `lz4.block`，与 `lz4` 命令行软件包分开。
+工作流优先使用 `/usr/bin/python3`，并在下载 ROM 前检查模块和压缩往返自检。
+
+桌面清单的旧格式包含宿主机解析的用户和组名称。原构建机的清单 SHA256 为
+`175ca2299263545973831606e397cce3fbc79298d97eb0bd7e216ac34944eed7`；
+本次 GitHub runner 在 ISO/casper 校验通过后生成的清单 SHA256 为
+`43c5325645f920b659ebe942357a0b727798ede808328ed39e4b2839175f5a89`。
+根文件系统构建器仅接受这两份明确固定的清单身份，并记录实际使用值；其他值仍拒绝。
+提取 Ubuntu 后即运行 `verify-desktop`，在传感器和 Settings 编译前完成这项检查。
+
 ## 产物
 
 - `liuqin-os3-candidate-*`：匹配的 Ubuntu boot、installer、rootfs、安装脚本和校验清单。

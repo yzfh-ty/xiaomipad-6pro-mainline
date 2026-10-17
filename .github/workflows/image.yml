@@ -42,11 +42,14 @@ jobs:
           sudo apt-get install --no-install-recommends -y \
             build-essential bc bison flex libssl-dev libelf-dev \
             gcc-aarch64-linux-gnu libc6-dev-arm64-cross binutils-aarch64-linux-gnu \
-            ccache kmod rsync python3 python3-pyelftools git curl ca-certificates \
+            ccache kmod rsync python3 python3-lz4 python3-pyelftools git curl ca-certificates \
             xz-utils zstd lz4 file cpio busybox-static p7zip-full squashfs-tools \
             erofs-utils qemu-user qemu-user-static binfmt-support \
             gdisk e2fsprogs dosfstools util-linux acl attr m4 alsa-utils \
             dpkg-dev patch pkg-config zip
+          # Use the interpreter that owns the apt-installed Python modules.
+          echo '/usr/bin' >> "$GITHUB_PATH"
+          /usr/bin/python3 -c 'import lz4.block, elftools; print("Python build dependencies available")'
           sudo update-binfmts --enable qemu-aarch64
           sudo git config --system --add safe.directory "$GITHUB_WORKSPACE/project"
           available=$(df --output=avail -B1 "$GITHUB_WORKSPACE" | tail -n1)
@@ -68,6 +71,7 @@ jobs:
           python3 tests/os3-inputs.py
           python3 tests/installer.py
           python3 tests/installer-layout.py
+          python3 tools/patch-android-boot-ksu.py --selftest
       - name: Kernel revision
         id: kernel
         run: |

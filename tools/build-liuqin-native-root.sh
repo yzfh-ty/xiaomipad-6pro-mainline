@@ -16,13 +16,14 @@
 # Stages are individually rerunnable so a failure near the end does not cost
 # the full copy+chroot again:
 #
-#   sudo tools/build-liuqin-native-root.sh [all|copy|debs|assemble|manifest]
+#   sudo tools/build-liuqin-native-root.sh [verify-desktop|all|copy|debs|assemble|manifest]
 #
 # copy      fresh cp -a of the pinned rootfs + trivial static edits
 # debs      qemu chroot apt/dpkg install of the five debs
 # assemble  BlueZ policy, unit links, marker, boundary asserts, pre-flight
 # manifest  tree manifest + hash list + identity
 # pack      archive the assembled tree with ownership, ACLs and xattrs
+# verify-desktop  check the desktop input only, without writing an output
 # all       the four in order (default)
 set -eu
 
@@ -30,7 +31,6 @@ project_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 out_dir=${OUT_DIR:-"$project_root/out/native-root"}
 desktop_root=${UBUNTU_DESKTOP_ROOT:-"$project_root/tools/local/ubuntu-desktop-26.04-arm64/rootfs"}
 desktop_manifest=${DESKTOP_ROOTFS_MANIFEST:-"$desktop_root.manifest"}
-desktop_manifest_sha256=175ca2299263545973831606e397cce3fbc79298d97eb0bd7e216ac34944eed7
 debs_dir=${DEBS_DIR:-"$project_root/out/liuqin-debs"}
 # Shared with test-liuqin-debs.sh: the archive indexes are downloaded once per
 # host, not once per runner, and the shipped tree keeps the pinned (empty)
@@ -44,8 +44,21 @@ say() { printf 'build-liuqin-native-root: %s\n' "$*"; }
 [ "$(id -u)" = 0 ] || die 'run as root (tree copy, chroot and ownership preservation need it)'
 [ -x "$desktop_root/usr/lib/systemd/systemd" ] || die "not an Ubuntu root: $desktop_root"
 [ -f "$desktop_manifest" ] || die "desktop tree manifest is unavailable: $desktop_manifest"
-[ "$(sha256sum "$desktop_manifest" | cut -d' ' -f1)" = "$desktop_manifest_sha256" ] ||
-	die 'desktop tree manifest identity mismatch'
+# Legacy tree manifests use host-resolved owner/group names (%u:%g), which
+# can produce different manifest bytes on the original builder and CI runner.
+# Both observations are from the same checksum-pinned ISO/casper inputs.
+# Admit only these exact recorded identities and retain the selected identity
+# in native-root.identity below; never accept an arbitrary caller-supplied hash.
+desktop_manifest_sha256=$(sha256sum "$desktop_manifest" | cut -d' ' -f1)
+case $desktop_manifest_sha256 in
+175ca2299263545973831606e397cce3fbc79298d97eb0bd7e216ac34944eed7 | \
+43c5325645f920b659ebe942357a0b727798ede808328ed39e4b2839175f5a89) ;;
+*) die "desktop tree manifest identity mismatch: $desktop_manifest_sha256" ;;
+esac
+if [ "${1:-}" = verify-desktop ]; then
+	say "desktop input verified: $desktop_manifest_sha256"
+	exit 0
+fi
 case $out_dir in
 "$project_root"/out/*) ;;
 *) die "refusing an output directory outside out/: $out_dir" ;;
@@ -372,5 +385,5 @@ assemble) stage_assemble ;;
 manifest) stage_manifest ;;
 pack) stage_pack ;;
 all) stage_copy; stage_debs; stage_assemble; stage_manifest ;;
-*) die 'usage: build-liuqin-native-root.sh [all|copy|debs|assemble|manifest|pack]' ;;
+*) die 'usage: build-liuqin-native-root.sh [verify-desktop|all|copy|debs|assemble|manifest|pack]' ;;
 esac

@@ -149,6 +149,9 @@ def main():
     run('sh', PROJECT / 'tools/build-liuqin-ubuntu-desktop-rootfs.sh', 'download')
     run('sh', PROJECT / 'tools/build-liuqin-ubuntu-desktop-rootfs.sh', 'casper')
     run('sudo', '-n', 'sh', PROJECT / 'tools/build-liuqin-ubuntu-desktop-rootfs.sh', 'extract')
+    # Fail before slow component builds if this host produces an unknown
+    # desktop manifest. The assembly script owns the exact allowed identities.
+    run('sudo', '-n', 'sh', PROJECT / 'tools/build-liuqin-native-root.sh', 'verify-desktop')
     ubuntu_dir = LOCAL / 'ubuntu-desktop-26.04-arm64'
     (ubuntu_dir / 'ubuntu-26.04-desktop-arm64.iso').unlink()
     shutil.rmtree(ubuntu_dir / 'iso')
