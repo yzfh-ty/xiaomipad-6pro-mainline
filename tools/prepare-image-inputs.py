@@ -71,6 +71,8 @@ def sensors_fingerprint() -> dict:
         'device/sensors': tree_hash('device/sensors'),
         'device/sensors-overlay': tree_hash('device/sensors-overlay'),
         'builder': sha256_file(PROJECT / 'tools/build-liuqin-sensors-stack.sh'),
+        'ssc_integration_test': sha256_file(PROJECT / 'tests/ssc-accel-integration.py'),
+        'qrtr_probe': sha256_file(PROJECT / 'tests/qrtr-probe.c'),
         'rom_sensors': dir_content_hash(rom),
     }
 

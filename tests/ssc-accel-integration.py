@@ -30,6 +30,21 @@ def main() -> int:
         raise RuntimeError("upstream SSC accelerometer test contract changed")
 
     class LiuqinSSCTests(module.Tests):
+        def require_mock_transport(self):
+            """Report the real QRTR error inside the exact UMockdev testbed."""
+            probe = os.environ.get("LIUQIN_QRTR_PROBE")
+            if not probe:
+                raise RuntimeError("LIUQIN_QRTR_PROBE must name the built transport probe")
+            env = os.environ.copy()
+            env["UMOCKDEV_DIR"] = self.testbed.get_root_dir()
+            result = subprocess.run(
+                [probe, "--ssc"], env=env, capture_output=True, text=True, timeout=10
+            )
+            self.assertEqual(
+                result.returncode, 0,
+                "QRTR transport failed inside UMockdev:\n" + result.stdout + result.stderr,
+            )
+
         def start_daemon_before_coldplug_finishes(self):
             """Own the proxy as soon as its bus name appears, before SSC discovery."""
             env = os.environ.copy()
@@ -84,6 +99,7 @@ def main() -> int:
 
         def test_liuqin_ssc_accel(self):
             self.add_liuqin_accelerometer(self.testbed)
+            self.require_mock_transport()
             self.start_daemon()
             self.assertEqual(self.get_dbus_property("HasAmbientLight"), False)
             self.assertEventually(
@@ -106,6 +122,7 @@ def main() -> int:
 
         def test_liuqin_ssc_claim_during_coldplug(self):
             self.add_liuqin_accelerometer(self.testbed)
+            self.require_mock_transport()
             self.start_daemon_before_coldplug_finishes()
 
             self.assertEqual(self.get_dbus_property("HasAccelerometer"), False)

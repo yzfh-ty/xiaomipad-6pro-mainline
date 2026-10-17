@@ -46,7 +46,7 @@ jobs:
             xz-utils zstd lz4 file cpio busybox-static p7zip-full squashfs-tools \
             erofs-utils qemu-user qemu-user-static binfmt-support \
             gdisk e2fsprogs dosfstools util-linux acl attr m4 alsa-utils \
-            dpkg-dev patch pkg-config zip
+            dpkg-dev patch pkg-config zip libqrtr-glib-dev
           # Use the interpreter that owns the apt-installed Python modules.
           echo '/usr/bin' >> "$GITHUB_PATH"
           /usr/bin/python3 -c 'import lz4.block, elftools; print("Python build dependencies available")'
@@ -72,6 +72,20 @@ jobs:
           python3 tests/installer.py
           python3 tests/installer-layout.py
           python3 tools/patch-android-boot-ksu.py --selftest
+      - name: Check runner QRTR transport before downloading images
+        run: |
+          if ! sudo modprobe qrtr; then
+            extra_modules="linux-modules-extra-$(uname -r)"
+            if apt-cache show "$extra_modules" >/dev/null 2>&1; then
+              sudo apt-get install --no-install-recommends -y "$extra_modules"
+              sudo modprobe qrtr
+            else
+              echo 'No extra module package for this kernel; the transport probe will report whether QRTR is usable.'
+            fi
+          fi
+          gcc -Wall -Wextra -Werror project/tests/qrtr-probe.c \
+            -o "$RUNNER_TEMP/liuqin-qrtr-probe" $(pkg-config --cflags --libs qrtr-glib)
+          sudo timeout 15s "$RUNNER_TEMP/liuqin-qrtr-probe"
       - name: Kernel revision
         id: kernel
         run: |
@@ -137,4 +151,5 @@ jobs:
             project/logs/
             project/out/stock-rom-verified.json
             project/out/kernel/build-info.json
+            project/out/prepared-inputs/sensors/artifacts/*.log
           retention-days: 7

@@ -70,6 +70,14 @@ Python 依赖由 APT 安装，其中 [python3-lz4](https://packages.ubuntu.com/n
 根文件系统构建器仅接受这两份明确固定的清单身份，并记录实际使用值；其他值仍拒绝。
 提取 Ubuntu 后即运行 `verify-desktop`，在传感器和 Settings 编译前完成这项检查。
 
+SSC 模拟测试依赖构建机内核的真实 `AF_QIPCRTR` 支持，上游模拟器不会模拟这层传输。
+工作流先加载 `qrtr`，用原生 GLib 探针确认一次完整的总线查询，再下载镜像。
+ARM64 chroot 内也先检查同一条传输路径；模拟器启动后必须实际查到 SSC 服务 400，
+才运行两个未跳过的加速度计回归测试。UMockdev 内部会再次探测并打印底层错误。
+环境不满足时会停止，并在日志中区分 socket、总线查询和服务注册失败；
+若 runner 内核没有所需模块，可通过 `LIUQIN_IMAGE_RUNNER` 选择已配置 QRTR 的 Linux x86-64 构建机。
+参考 [上游 libssc 测试和环境要求](https://codeberg.org/DylanVanAssche/libssc/src/commit/0cf77b93b55752da34dca2dcecc06fca8665184b/README.md)。
+
 ## 产物
 
 - `liuqin-os3-candidate-*`：匹配的 Ubuntu boot、installer、rootfs、安装脚本和校验清单。

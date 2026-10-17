@@ -14,6 +14,7 @@ source_cache=${SOURCE_CACHE:-$project_root/tools/local/sensor-stack-src}
 rom_sensors=${ROM_SENSORS:-$project_root/tools/local/roms/liuqin/OS3.0.7.0.VMYCNXM/extracted/super-work/vendor-extract/etc/sensors}
 static_overlay=${SENSORS_OVERLAY:-$project_root/device/sensors-overlay}
 ssc_accel_test_runner=$project_root/tests/ssc-accel-integration.py
+qrtr_probe_source=$project_root/tests/qrtr-probe.c
 hexagonrpc_patch=${HEXAGONRPC_PATCH:-$project_root/device/sensors/patches/0001-hexagonrpcd-expose-the-SSC-registry-version-sibling.patch}
 hexagonrpc_sns_patch=${HEXAGONRPC_SNS_PATCH:-$project_root/device/sensors/patches/0002-hexagonrpcd-add-a-narrow-sns_registry-property-shim.patch}
 iio_claim_patch=${IIO_CLAIM_PATCH:-$project_root/device/sensors/patches/0003-iio-sensor-proxy-start-preclaimed-coldplug-sensor.patch}
@@ -47,6 +48,7 @@ say() { printf 'build-liuqin-sensors-stack: %s\n' "$*"; }
 [ -x "$rootfs/usr/lib/systemd/systemd" ] || die "not an Ubuntu root: $rootfs"
 [ -r "$source_manifest" ] || die "missing source manifest: $source_manifest"
 [ -r "$ssc_accel_test_runner" ] || die "missing SSC accelerometer test runner: $ssc_accel_test_runner"
+[ -r "$qrtr_probe_source" ] || die "missing QRTR transport probe: $qrtr_probe_source"
 [ -r "$hexagonrpc_patch" ] || die "missing hexagonrpc patch: $hexagonrpc_patch"
 [ -r "$hexagonrpc_sns_patch" ] || die "missing hexagonrpc patch: $hexagonrpc_sns_patch"
 [ -r "$iio_claim_patch" ] || die "missing iio-sensor-proxy patch: $iio_claim_patch"
@@ -141,6 +143,7 @@ rm -rf "$work/source"
 mkdir -p "$work/source"
 cp -a "$source_cache/." "$work/source/"
 install -m 0755 "$ssc_accel_test_runner" "$work/source/liuqin-ssc-accel-integration.py"
+install -m 0644 "$qrtr_probe_source" "$work/source/liuqin-qrtr-probe.c"
 git -C "$work/source/hexagonrpc" apply --check "$hexagonrpc_patch" ||
 	die 'hexagonrpc registry-version patch no longer applies to the pinned source'
 git -C "$work/source/hexagonrpc" apply "$hexagonrpc_patch"
@@ -245,7 +248,7 @@ chroot "$merged" /usr/bin/env DEBIAN_FRONTEND=noninteractive \
 	python3-dev python3-gi python3-protobuf python3-dbusmock libqrtr1 \
 	gir1.2-umockdev-1.0 umockdev locales-all \
 	libglib2.0-dev libqmi-glib-dev libprotobuf-c-dev protobuf-c-compiler protobuf-compiler \
-	libgudev-1.0-dev libpolkit-gobject-1-dev libsystemd-dev libjson-c-dev
+	libgudev-1.0-dev libpolkit-gobject-1-dev libsystemd-dev libjson-c-dev libqrtr-glib-dev
 
 cat >"$merged/build/build.sh" <<'EOF'
 #!/bin/sh
@@ -258,6 +261,12 @@ export LANG=C.UTF-8
 export SOURCE_DATE_EPOCH=0
 export CFLAGS='-O2 -g0 -ffile-prefix-map=/build=. -fdebug-prefix-map=/build=.'
 export LDFLAGS='-Wl,--build-id=sha1'
+
+# Verify the ARM64 GLib transport in the same chroot/QEMU environment before
+# spending time compiling. Native host socket support alone is insufficient.
+gcc -Wall -Wextra -Werror /build/source/liuqin-qrtr-probe.c \
+	-o /build/qrtr-probe $(pkg-config --cflags --libs qrtr-glib)
+timeout 15s /build/qrtr-probe
 
 build_one() {
 	name=$1
@@ -349,7 +358,7 @@ ssc_log=/build/work/iio-sensor-proxy/meson-logs/testlog-ssc.txt
 # iio-sensor-proxy's own ssc-test.py does not create a mock service.  Upstream
 # CI starts libssc's server once before invoking Meson; mirror that exact
 # topology instead of relying on a service left behind by another test.
-/build/work/libssc/mocking/ssc_server/ssc-server \
+PYTHONUNBUFFERED=1 /build/work/libssc/mocking/ssc_server/ssc-server \
 	>/build/work/iio-sensor-proxy/meson-logs/ssc-server.log 2>&1 &
 ssc_server_pid=$!
 cleanup_ssc_server() {
@@ -357,11 +366,28 @@ cleanup_ssc_server() {
 	wait "$ssc_server_pid" 2>/dev/null || true
 }
 trap cleanup_ssc_server EXIT HUP INT TERM
-sleep 2
-kill -0 "$ssc_server_pid" 2>/dev/null || {
-	cat /build/work/iio-sensor-proxy/meson-logs/ssc-server.log >&2
-	exit 1
-}
+# Process creation is not proof that Python has imported its dependencies and
+# registered service 400. Wait for actual discovery, including on slower QEMU.
+attempt=0
+while :; do
+	if ! kill -0 "$ssc_server_pid" 2>/dev/null; then
+		cat /build/work/iio-sensor-proxy/meson-logs/ssc-server.log >&2
+		exit 1
+	fi
+	if timeout 10s /build/qrtr-probe --ssc; then
+		break
+	else
+		probe_status=$?
+	fi
+	# Retry only successful bus queries which have not found the service yet.
+	# A transport failure or timeout must retain its original failure status.
+	if [ "$probe_status" != 2 ] || [ "$attempt" -ge 29 ]; then
+		cat /build/work/iio-sensor-proxy/meson-logs/ssc-server.log >&2
+		exit 1
+	fi
+	attempt=$((attempt + 1))
+	sleep 1
+done
 # Upstream keeps this runtime driver but marks its generic udev admission and
 # corresponding test skipped because some unrelated devices can hang during
 # setup.  liuqin's sample gate has already bounded and proven that exact path.
@@ -373,10 +399,12 @@ kill -0 "$ssc_server_pid" 2>/dev/null || {
 # "SKIP" or the real Claim-before-device race cannot masquerade as coverage.
 if ! top_builddir=/build/work/iio-sensor-proxy \
 	top_srcdir=/build/source/iio-sensor-proxy \
+	LIUQIN_QRTR_PROBE=/build/qrtr-probe \
 	timeout --signal=TERM --kill-after=5s 120s \
 	umockdev-wrapper python3 /build/source/liuqin-ssc-accel-integration.py \
 	/build/source/iio-sensor-proxy/tests/ssc-test.py >"$ssc_log" 2>&1; then
 	cat "$ssc_log" >&2
+	cat /build/work/iio-sensor-proxy/meson-logs/ssc-server.log >&2
 	exit 1
 fi
 grep -q '^OK$' "$ssc_log" || {
@@ -408,11 +436,25 @@ dpkg-query -W -f='${binary:Package}\t${Version}\t${Architecture}\n' \
 	python3-dev python3-gi python3-protobuf python3-dbusmock libqrtr1 \
 	gir1.2-umockdev-1.0 umockdev locales-all \
 	libprotobuf-c-dev protobuf-c-compiler protobuf-compiler libgudev-1.0-dev \
-	libpolkit-gobject-1-dev libsystemd-dev libjson-c-dev |
+	libpolkit-gobject-1-dev libsystemd-dev libjson-c-dev libqrtr-glib-dev |
 	LC_ALL=C sort >/build/dest/ubuntu-resolute-build-deps.tsv
 EOF
 chmod 0755 "$merged/build/build.sh"
-JOBS=$jobs chroot "$merged" /build/build.sh
+if JOBS=$jobs chroot "$merged" /build/build.sh; then
+	:
+else
+	build_status=$?
+	# Preserve upstream test details before cleanup unmounts the overlay root.
+	# Successful Meson wrapper exit codes alone can hide a child test failure.
+	for component in hexagonrpc libssc iio-sensor-proxy; do
+		for log in "$merged/build/work/$component/meson-logs/"testlog*.txt \
+			"$merged/build/work/$component/meson-logs/"*.log; do
+			[ -f "$log" ] || continue
+			cp "$log" "$out_dir/artifacts/$component-$(basename "$log").log"
+		done
+	done
+	exit "$build_status"
+fi
 ;;
 1)
 	[ -x "$merged/build/dest/usr/bin/ssccli" ] || die 'ASSEMBLE_ONLY has no completed ssccli'
