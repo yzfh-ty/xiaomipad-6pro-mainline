@@ -1,5 +1,8 @@
 # Ubuntu for Xiaomi Pad 6 Pro
 
+> 本 Fork 分支将 Android 基线改为 **OS3.0.7.0.VMYCNXM（Android 15）**，尚未真机验证。
+> 手动构建见 [OS3 Actions 指南](docs/OS3-ACTIONS.zh-CN.md)。下文原有验收记录属于上游基线。
+
 在 Xiaomi Pad 6 Pro 上运行 Ubuntu 26.04 桌面，采用 GNOME 桌面环境与基于上游 Linux 的设备适配内核。[English](README.md)
 
 ## 📮 关注与交流
@@ -135,3 +138,4 @@ Ubuntu 软件包通过 APT 管理。项目内核与设备组件的更新方式�
 
 除文件另有声明外，项目原创代码采用 MIT 许可证。Linux 内核及第三方组件保留各自许可证；
 固件适用其权利人的授权条款。详见 [LICENSE](LICENSE) 与 [NOTICE](NOTICE)。
+

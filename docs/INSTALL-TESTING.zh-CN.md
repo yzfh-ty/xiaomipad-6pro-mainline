@@ -1,5 +1,9 @@
 # 安装步骤
 
+> **OS3 分支状态：** 本分支锁定 OS3.0.7.0.VMYCNXM，状态为 `OFFLINE_INSPECTED`，尚未真机验证。
+> 下文原有验收记录属于上游基线；本分支产物需重新验证试装与双向切换。
+> 构建方法见 [OS3 Actions 指南](OS3-ACTIONS.zh-CN.md)。
+
 [English](INSTALL-TESTING.md)
 
 首次安装和首次启动已在 256 GB 机型完成真机验证；128 GB 与 512 GB 变体按
@@ -342,3 +346,4 @@ Android 恢复路线仍待独立真机验证，不应将 Ubuntu 安装通过等�
 `--keep-home` 只保留独立 `/home`，仍会重建 Ubuntu 系统分区，旧账号配置与系统中的指纹模板/凭据会清除；首次设置时需重新创建账号并录入指纹。
 
 本版完整包同时附带 `liuqin_boot_ubuntu-v0.3.zip`、`dualboot-tools.zip` 和公开指纹构建输入；正常使用指纹无需再安装单独应用。解压 `dualboot-tools.zip` 后可按本文命令获取、校验 KernelSU 上游组件并生成 Android boot。
+

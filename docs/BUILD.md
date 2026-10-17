@@ -1,5 +1,8 @@
 # Building
 
+> OS3 fork branch: use the [manual Actions entry point](OS3-ACTIONS.zh-CN.md)
+> to prepare pinned inputs and assemble an untested candidate on a fresh runner.
+
 [中文](BUILD.zh-CN.md) | [Project overview](../README.md)
 
 ## Kernel

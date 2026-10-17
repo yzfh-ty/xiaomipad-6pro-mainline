@@ -63,8 +63,10 @@ def dir_content_hash(path: Path) -> str:
 # --- fingerprints -----------------------------------------------------------
 
 def sensors_fingerprint() -> dict:
-    rom = (PROJECT / 'tools/local/roms/liuqin/OS2.0.6.0.VMYCNXM/extracted/'
+    rom = (PROJECT / 'tools/local/roms/liuqin/OS3.0.7.0.VMYCNXM/extracted/'
            'super-work/vendor-extract/etc/sensors')
+    if not (rom / 'config').is_dir() or not (rom / 'sns_reg_config').is_file():
+        raise SystemExit(f'Missing exact-ROM sensor inputs: {rom}')
     return {
         'device/sensors': tree_hash('device/sensors'),
         'device/sensors-overlay': tree_hash('device/sensors-overlay'),
@@ -128,17 +130,19 @@ def cache_store(cache: dict, name: str, fp: dict, artifact: Path) -> None:
 
 def rebuild_sensors(out_dir: Path) -> Path:
     tar = out_dir / 'artifacts/sensor-stack.tar'
-    env = dict(os.environ, UPDATE_APT='1', OUT_DIR=str(out_dir))
-    subprocess.run(['sudo', '-n', 'sh', 'tools/build-liuqin-sensors-stack.sh'],
-                   cwd=PROJECT, env=env, check=True)
+    subprocess.run(['sudo', '-n', 'env', 'UPDATE_APT=1', 'OUT_DIR=' + str(out_dir),
+                    'sh', 'tools/build-liuqin-sensors-stack.sh'],
+                   cwd=PROJECT, check=True)
     return tar
 
 
 def rebuild_settings(out_dir: Path) -> Path:
-    subprocess.run(['python3', 'tools/build-liuqin-settings.py', '--prepare-only'],
+    subprocess.run(['python3', 'tools/build-liuqin-settings.py', '--prepare-only',
+                    '--out', str(out_dir)],
                    cwd=PROJECT, check=True)
     subprocess.run(['sudo', '-n', 'python3', 'tools/build-liuqin-settings.py',
-                    '--jobs', str(os.cpu_count() or 8)], cwd=PROJECT, check=True)
+                    '--out', str(out_dir), '--jobs', str(min(os.cpu_count() or 8, 8))],
+                   cwd=PROJECT, check=True)
     return out_dir / 'gnome-control-center'
 
 
@@ -262,8 +266,8 @@ def cmd_run() -> None:
         'FIRMWARE_MANIFEST_SHA256': sha256_file(firmware_manifest),
         'AUDIO_TOPOLOGY': str(topology_bin),
         'WLAN_HSP2_TUPLE': str(PROJECT / 'out/wlan-source-check'),
-        'STOCK_OVERLAY_DIR': str(PROJECT / 'tools/local/roms/liuqin/OS2.0.6.0.VMYCNXM/analysis/dtbo'),
-        'STOCK_BASE_DIR': str(PROJECT / 'tools/local/roms/liuqin/OS2.0.6.0.VMYCNXM/analysis/vendor_boot/dtbs'),
+        'STOCK_OVERLAY_DIR': str(PROJECT / 'tools/local/roms/liuqin/OS3.0.7.0.VMYCNXM/analysis/dtbo'),
+        'STOCK_BASE_DIR': str(PROJECT / 'tools/local/roms/liuqin/OS3.0.7.0.VMYCNXM/analysis/vendor_boot/dtbs'),
         'SENSOR_STACK_TAR': str(sensor_tar),
         'SENSOR_STACK_SHA256': sha256_file(sensor_tar),
         'POWER_SETTINGS_BINARY': str(settings_bin),

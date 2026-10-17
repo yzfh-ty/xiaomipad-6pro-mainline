@@ -145,8 +145,9 @@ native boot 构建器直接使用指定内核的 Image、DTB，以及已装配�
 `out/native-boot/boot-liuqin-native.img`。同目录的 `native-boot.identity`
 记录输入与输出校验值，不包含本地路径。离线装配结果需经过真机验证后才能分发。
 
-完整镜像从干净 checkout 构建的流程仍在准备，需补齐版本化固件输入、用户态构建依赖
-后，才能提供受支持的一体化入口。不要用旧 boot 镜像或其他构建的内核代替。
+本 OS3 分支提供从干净 checkout 手动构建候选整包的 Actions 入口，见
+[OS3 Actions 指南](OS3-ACTIONS.zh-CN.md)。尚未完成本分支真机验证。
+不要用旧 boot 镜像或其他构建的内核代替。
 
 ## 根文件系统归档
 
@@ -164,8 +165,8 @@ native boot 构建器直接使用指定内核的 Image、DTB，以及已装配�
 
 工作流使用与本地相同的 Python 入口编译固定版本内核，产物为内核构建文件，
 不是可安装的 Ubuntu 发行包。内核仓库的提交构建与主项目的锁定版本构建共用同一入口。
-整包装配使用 `tools/build-liuqin-image.py`，支持单阶段续跑；GitHub 整包任务需要配置专用构建机，
-默认手动触发，可在配置完成后启用 main 更新自动装配。详见[CI 配置](CI.md)。
+整包装配使用 `tools/build-liuqin-image.py`，支持单阶段续跑；本分支的 GitHub 整包任务
+手动触发，并自动准备固定输入。详见 [OS3 Actions 指南](OS3-ACTIONS.zh-CN.md)。
 真机测试按[安装步骤](INSTALL-TESTING.zh-CN.md)进行。CI 编译成功不代表新安装包已通过真机验证。
 
 ## Release 文件

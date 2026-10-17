@@ -1,5 +1,8 @@
 # Builds and Automation
 
+> OS3 fork branch: `System image` is now a manual GitHub-hosted build with ROM download inputs.
+> See [OS3 Actions instructions](OS3-ACTIONS.zh-CN.md). Artifacts are untested candidates.
+
 ## Kernel Changes
 
 The kernel repository's `Liuqin kernel` workflow builds pushes and pull requests
@@ -27,19 +30,15 @@ a completed product kernel build plus prepared inputs; it does not rebuild every
 third-party dependency. `--stage` resumes an interrupted assembly without repeating
 successful stages. Do not modify sources or inputs while an assembly is running.
 
-The `System image` workflow is manually dispatched on `main` and uploads the
-matching boot image, installer RAM image, rootfs, installer and checksums.
-It requires a dedicated Linux x86-64 runner labeled `liuqin-images`, sufficient
-disk space for kernel outputs and two desktop trees, and the host dependencies
-listed in BUILD. Python also needs pyelftools; image assembly needs root, GNU tar,
-ACL/xattr support, squashfs-tools, cpio, ARM64 binfmt and the cross compiler.
-The runner must allow noninteractive execution of the trusted assembly command
-with sudo. Do not run external pull requests on this privileged runner.
-After configuring the runner, set repository variable `LIUQIN_IMAGE_CI=enabled`
-to also assemble images automatically when relevant code changes reach `main`.
+The `System image` workflow is manually dispatched on the selected branch and uploads
+the matching boot image, installer RAM image, rootfs, installer and checksums.
+It defaults to `ubuntu-24.04`, installs dependencies and prepares pinned inputs from
+the supplied stock-ROM URL. It checks for 45 GiB of free space; if unavailable, select
+a larger Linux x86-64 runner using repository variable `LIUQIN_IMAGE_RUNNER`.
+The runner must allow noninteractive sudo, ARM64 binfmt and overlay mounts.
+External pull requests never trigger this privileged assembly.
 
-Set `LIUQIN_IMAGE_INPUTS` to a runner-local JSON file (default
-`/opt/liuqin/inputs.json`). It contains the prepared-input variables listed by
+For local assembly, a prepared-input JSON file contains the variables listed by
 `tools/build-liuqin-image.py`: Ubuntu root and manifest, firmware pool and prepared
 tree, audio topology, WLAN set, stock DTB/DTBO inputs, sensor archive, Settings
 binary and its build manifest, BusyBox and mkbootimg. Hash values remain pinned;
@@ -56,7 +55,7 @@ python3 tools/install-liuqin.py --bundle out/image/bundle --check
 ```
 
 The workflow does not create a public Release or mark a bundle device-tested.
-Full-image CI requires a configured dedicated runner. Test installation on the
+Full-image CI depends on runner disk space and the availability of pinned upstream inputs. Test installation on the
 final candidate before marking a bundle device-tested; report Android recovery
 separately and do not claim it is validated by a successful Ubuntu installation.
 

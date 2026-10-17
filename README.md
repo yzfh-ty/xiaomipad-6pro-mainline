@@ -1,5 +1,8 @@
 # Ubuntu for Xiaomi Pad 6 Pro
 
+> This fork branch pins **OS3.0.7.0.VMYCNXM (Android 15)** without device validation.
+> See [manual OS3 Actions builds](docs/OS3-ACTIONS.zh-CN.md). Historical acceptance below applies to the upstream baseline.
+
 Run Ubuntu 26.04 on the Xiaomi Pad 6 Pro, with the GNOME desktop and a device-adapted kernel based on upstream Linux. [中文](README.zh-CN.md)
 
 ## 📮 Follow & Discuss

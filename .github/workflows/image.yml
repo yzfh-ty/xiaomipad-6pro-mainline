@@ -1,30 +1,77 @@
 name: System image
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'device/**'
-      - 'initramfs/**'
-      - 'kernel/source.json'
-      - 'tools/**'
-      - '.github/workflows/image.yml'
+    inputs:
+      rom_url:
+        description: 'HTTPS URL of the pinned OS3.0.7.0.VMYCNXM Fastboot .tgz'
+        type: string
+        required: true
+      ubuntu_url:
+        description: 'Optional mirror URL of the exact pinned Ubuntu 26.04 ARM64 desktop ISO'
+        type: string
+        required: false
+      kernel_repository:
+        description: 'Optional owner/repo; empty uses your-owner/linux-sm8450-liuqin'
+        type: string
+        required: false
 permissions:
   contents: read
 concurrency:
-  group: liuqin-image-builder
+  group: liuqin-image-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   image:
-    # This privileged job only runs trusted main code, never external PRs.
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.LIUQIN_IMAGE_CI == 'enabled')
-    runs-on: [self-hosted, linux, X64, liuqin-images]
+    # Manual trusted-branch build. Never run privileged assembly on PR code.
+    runs-on: ${{ vars.LIUQIN_IMAGE_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 360
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
           path: project
           persist-credentials: false
+          fetch-depth: 0
+      - name: Reclaim space on disposable GitHub-hosted runner
+        if: runner.environment == 'github-hosted'
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          docker image prune --all --force
+          df -h "$GITHUB_WORKSPACE"
+      - name: Dependencies and disk budget
+        run: |
+          test "$(uname -m)" = x86_64
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential bc bison flex libssl-dev libelf-dev \
+            gcc-aarch64-linux-gnu libc6-dev-arm64-cross binutils-aarch64-linux-gnu \
+            ccache kmod rsync python3 python3-pyelftools git curl ca-certificates \
+            xz-utils zstd lz4 file cpio busybox-static p7zip-full squashfs-tools \
+            erofs-utils qemu-user qemu-user-static binfmt-support \
+            gdisk e2fsprogs dosfstools util-linux acl attr m4 alsa-utils \
+            dpkg-dev patch pkg-config zip
+          sudo update-binfmts --enable qemu-aarch64
+          sudo git config --system --add safe.directory "$GITHUB_WORKSPACE/project"
+          available=$(df --output=avail -B1 "$GITHUB_WORKSPACE" | tail -n1)
+          if (( available < 45 * 1024 * 1024 * 1024 )); then
+            echo '::error::Need at least 45 GiB free. Set LIUQIN_IMAGE_RUNNER to a larger x86-64 runner label.'
+            exit 1
+          fi
+      - name: CI syntax and OS3 regression checks
+        working-directory: project
+        run: |
+          python3 - <<'PY'
+          import ast, subprocess
+          from pathlib import Path
+          for path in Path('tools').rglob('*.py'):
+              ast.parse(path.read_text(), filename=str(path))
+          for path in Path('tools').rglob('*.sh'):
+              subprocess.run(['sh', '-n', str(path)], check=True)
+          PY
+          python3 tests/os3-inputs.py
+          python3 tests/installer.py
+          python3 tests/installer-layout.py
       - name: Kernel revision
         id: kernel
         run: |
@@ -36,24 +83,59 @@ jobs:
           PY
       - uses: actions/checkout@v4
         with:
-          repository: ${{ github.repository_owner }}/linux-sm8450-liuqin
+          repository: ${{ inputs.kernel_repository || format('{0}/linux-sm8450-liuqin', github.repository_owner) }}
           ref: ${{ steps.kernel.outputs.sha }}
           path: linux-sm8450-liuqin
-          fetch-depth: 0
+          fetch-depth: 1
           persist-credentials: false
-      - name: Build matching kernel
-        run: python3 project/tools/build-liuqin-kernel.py --jobs 8
-      - name: Assemble image
+      - name: Prepare OS3, Ubuntu and device components
+        working-directory: project
         env:
-          INPUT_FILE: ${{ vars.LIUQIN_IMAGE_INPUTS || '/opt/liuqin/inputs.json' }}
+          ROM_URL: ${{ inputs.rom_url }}
+          UBUNTU_DESKTOP_URL: ${{ inputs.ubuntu_url }}
         run: |
-          sudo -n python3 project/tools/build-liuqin-image.py \
-            --inputs "$INPUT_FILE" --kernel-out "$GITHUB_WORKSPACE/project/out/kernel"
-          python3 project/tools/install-liuqin.py --bundle project/out/image/bundle --check
+          mkdir -p logs
+          python3 -u tools/prepare-ci-inputs.py 2>&1 | tee logs/prepare-inputs.log
+      - name: Build matching kernel
+        working-directory: project
+        env:
+          CCACHE_MAXSIZE: 2G
+        run: python3 -u tools/build-liuqin-kernel.py --jobs 4 2>&1 | tee logs/kernel.log
+      - name: Assemble and verify candidate
+        working-directory: project
+        run: |
+          sudo -n python3 -u tools/build-liuqin-image.py \
+            --inputs out/image-inputs.local.json --kernel-out out/kernel 2>&1 | tee logs/image.log
+          python3 tools/install-liuqin.py --bundle out/image/bundle --check
+          sudo chown -R "$(id -u):$(id -g)" out/image/bundle out/android-os3
+          cat > out/android-os3/README.txt <<'EOF'
+          Experimental OS3.0.7.0.VMYCNXM candidate; not device-tested.
+          boot-ksu.img is the OS3 Android boot override (--android-boot), NOT the Ubuntu boot image.
+          The original matching Fastboot ROM is required separately for dual installation.
+          EOF
+          echo 'OS3 candidate assembled; OFFLINE_ASSEMBLED, not device-tested.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
-          name: liuqin-system-${{ github.sha }}
+          name: liuqin-os3-candidate-${{ github.run_id }}
           if-no-files-found: error
           compression-level: 0
           path: project/out/image/bundle/
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: liuqin-os3-android-boot-${{ github.run_id }}
+          if-no-files-found: error
+          compression-level: 0
+          path: project/out/android-os3/
+          retention-days: 7
+      - name: Preserve logs and input identities
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: liuqin-os3-logs-${{ github.run_id }}
+          if-no-files-found: ignore
+          path: |
+            project/logs/
+            project/out/stock-rom-verified.json
+            project/out/kernel/build-info.json
           retention-days: 7

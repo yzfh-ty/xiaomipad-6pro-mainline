@@ -1,5 +1,9 @@
 # Installation Steps
 
+> This branch pins OS3.0.7.0.VMYCNXM as `OFFLINE_INSPECTED`, without device validation.
+> Historical acceptance below applies to the upstream baseline. Revalidate installation
+> and both switching directions. See [manual OS3 Actions builds](OS3-ACTIONS.zh-CN.md).
+
 Initial installation and first boot have been tested on a 256 GB unit. The
 128 GB and 512 GB variants are admitted by the rules in the
 [installation guide](FLASHING.md) but have not been tested on real hardware.
@@ -433,3 +437,4 @@ On an existing supported split layout, `--no-backup` can replace `--backup PATH`
 `--keep-home` retains only the separate `/home` filesystem. The Ubuntu system partition is recreated, removing its accounts and fingerprint templates/credentials; create the account and enroll the finger again after installation.
 
 The complete bundle also includes `liuqin_boot_ubuntu-v0.3.zip`, `dualboot-tools.zip` and the public fingerprint build input. Normal fingerprint use needs no separate application. Extract `dualboot-tools.zip` to use the documented pinned KernelSU download and Android boot patching commands.
+

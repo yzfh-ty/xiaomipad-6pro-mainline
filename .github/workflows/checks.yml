@@ -30,6 +30,7 @@ jobs:
           sudo apt-get install --no-install-recommends -y gdisk
           python3 tests/installer.py
           python3 tests/installer-layout.py
+          python3 tests/os3-inputs.py
           sudo python3 tests/rootfs-archive.py
       - name: Persistent-root fail-closed policy
         run: |

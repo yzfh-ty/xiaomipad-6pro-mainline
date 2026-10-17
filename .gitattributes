@@ -1,2 +1,6 @@
 # Unified diffs use leading context spaces, including otherwise empty lines.
 *.patch -whitespace
+*.sh text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.yml text eol=lf

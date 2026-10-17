@@ -350,6 +350,10 @@ def verify_rom(parser, rom_dir, android_boot=None):
             parser.error('ROM image does not match the pinned ' + table['rom'] + ' release: ' + name +
                          ' —— 原厂镜像与本项目验证过的版本不一致，请使用 ' + table['rom'])
         selected[name] = dict(entry, path=path)
+    if table.get('status') == 'OFFLINE_INSPECTED':
+        anti = images / 'anti_version.txt'
+        if not anti.is_file() or anti.read_text().strip() != str(table['anti_version']):
+            parser.error('ROM anti_version.txt does not match the pinned package')
     if android_boot is not None:
         # Every stock image was verified above; only now is the Android boot
         # image swapped, so the override can never skip a checksum.
@@ -370,6 +374,11 @@ def main(argv=None):
             parser.error('bundle checksum mismatch: ' + name + ' —— 包文件损坏或不完整，请重新下载')
     if args.check:
         validate_arguments(parser, args, preview=True)
+        if args.rom_dir is not None:
+            if args.layout != 'dual':
+                parser.error('--rom-dir requires --layout dual')
+            rom_table, _ = verify_rom(parser, args.rom_dir, args.android_boot)
+            print('Stock ROM verified: ' + rom_table['rom'])
         print('Local bundle checksums verified; no device access')
         if args.layout:
             print('Planned layout for an untouched factory partition table:')
@@ -393,6 +402,9 @@ def main(argv=None):
         rom_table, rom_images = ({}, {})
         if args.layout == 'dual':
             rom_table, rom_images = verify_rom(parser, args.rom_dir, args.android_boot)
+            if rom_table.get('status') == 'OFFLINE_INSPECTED' and not args.allow_unverified:
+                parser.error('This stock ROM is only offline-inspected; attended tests require '
+                             '--allow-unverified')
             print('Stock ROM verified against the pinned ' + rom_table['rom'] + ' checksums')
             if args.android_boot is not None:
                 print('Android boot image override: ' + str(args.android_boot.resolve()))
