@@ -11,7 +11,7 @@ project_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 rootfs=${ROOTFS:-$project_root/tools/local/ubuntu-desktop-26.04-arm64/rootfs}
 source_manifest=${SOURCE_MANIFEST:-$project_root/device/sensors/sources.manifest}
 source_cache=${SOURCE_CACHE:-$project_root/tools/local/sensor-stack-src}
-rom_sensors=${ROM_SENSORS:-$project_root/tools/local/roms/liuqin/OS3.0.7.0.VMYCNXM/extracted/super-work/vendor-extract/etc/sensors}
+rom_sensors=${ROM_SENSORS:-$project_root/tools/local/roms/liuqin/OS4.0.2.5.XMYCNXM/extracted/super-work/vendor-extract/etc/sensors}
 static_overlay=${SENSORS_OVERLAY:-$project_root/device/sensors-overlay}
 ssc_accel_test_runner=$project_root/tests/ssc-accel-integration.py
 qrtr_probe_source=$project_root/tests/qrtr-probe.c

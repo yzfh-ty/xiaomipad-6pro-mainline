@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Read pinned stock inputs without executing Xiaomi's flashing scripts."""
+"""Normalize checksum-pinned ROM inputs without executing vendor scripts."""
 import hashlib
 import json
 from pathlib import Path
+import stat
 import struct
+import tarfile
+import zipfile
 
 PROJECT = Path(__file__).resolve().parents[2]
 
@@ -15,17 +18,105 @@ def sha(path):
 
 
 def table():
-    return json.loads((PROJECT / 'tools/lib/liuqin-rom-images.json').read_text())
+    # The same helper is shipped next to the manifest in an installation bundle.
+    sibling = Path(__file__).with_name('liuqin-rom-images.json')
+    path = sibling if sibling.is_file() else PROJECT / 'tools/lib/liuqin-rom-images.json'
+    return json.loads(path.read_text())
 
 
-def verify_images(images):
-    lock = table()
+def verify_images(images, lock=None):
+    lock = table() if lock is None else lock
     for name, entry in lock['images'].items():
         path = images / name
-        if path.stat().st_size != entry['bytes'] or sha(path) != entry['sha256']:
+        if (path.is_symlink() or not path.is_file() or
+                path.stat().st_size != entry['bytes'] or sha(path) != entry['sha256']):
             raise ValueError(f"Wrong {lock['rom']} input: {path}")
     if (images / 'anti_version.txt').read_text().strip() != str(lock['anti_version']):
         raise ValueError('ROM anti_version.txt differs from the pinned package')
+
+
+def copy_bounded(incoming, output, expected):
+    """Stop a malformed compressed member before it can exceed its pinned size."""
+    total = 0
+    while chunk := incoming.read(min(1 << 20, expected - total + 1)):
+        total += len(chunk)
+        if total > expected:
+            raise ValueError('ROM member exceeds its pinned uncompressed size')
+        output.write(chunk)
+    if total != expected:
+        raise ValueError('Truncated ROM member')
+
+
+def unpack_rom(archive, images, lock=None):
+    """Extract only reviewed payloads and normalize their installer filenames.
+
+    No boot_magisk, Magisk executables, FRP, userdata, GPT or flashing scripts
+    are extracted. Archive identity and every resulting image remain pinned.
+    """
+    lock = table() if lock is None else lock
+    identity = lock['archive']
+    if archive.stat().st_size != identity['bytes'] or sha(archive) != identity['sha256']:
+        raise ValueError('ROM archive identity mismatch')
+    for name in lock['images']:
+        if not name or Path(name).name != name or '/' in name or '\\' in name:
+            raise ValueError('Unsafe normalized image name')
+    if images.exists():
+        raise ValueError('Output images directory exists; use a new output directory')
+    fmt = identity.get('format', 'tgz')
+    if fmt not in ('zip', 'tgz'):
+        raise ValueError('Unsupported ROM archive format')
+    images.mkdir(parents=True)
+    if fmt == 'zip':
+        members = identity['members']
+        if set(members) != set(lock['images']) or len(set(members.values())) != len(members):
+            raise ValueError('ROM archive mapping must cover every pinned image exactly once')
+        compression = identity.get('compression', {})
+        if not set(compression) <= set(members) or set(compression.values()) - {'zstd'}:
+            raise ValueError('Unsupported ROM member compression')
+        with zipfile.ZipFile(archive) as source:
+            entries = source.infolist()
+            for name, member in members.items():
+                matches = [item for item in entries if item.filename == member]
+                if (len(matches) != 1 or matches[0].is_dir() or
+                        stat.S_ISLNK(matches[0].external_attr >> 16)):
+                    raise ValueError('Missing, duplicate or nonregular ROM member: ' + member)
+                expected = lock['images'][name]['bytes']
+                if name not in compression and matches[0].file_size != expected:
+                    raise ValueError('Unexpected ROM member size: ' + member)
+                with source.open(matches[0]) as incoming, (images / name).open('xb') as output:
+                    if compression.get(name) == 'zstd':
+                        import zstandard
+                        with zstandard.ZstdDecompressor().stream_reader(incoming, closefd=False) as reader:
+                            copy_bounded(reader, output, expected)
+                    else:
+                        copy_bounded(incoming, output, expected)
+        # This port has no anti_version.txt. Its protected base firmware was
+        # compared with the pinned OS3 anti=1 baseline before admitting it.
+        # The explicit provenance entry prevents treating an absent value as 0.
+        if lock.get('anti_version_source') != 'verified-os3-base-firmware':
+            raise ValueError('ZIP ROM lacks a reviewed anti-version provenance')
+        (images / 'anti_version.txt').write_text(str(lock['anti_version']) + '\n')
+    else:
+        wanted = set(lock['images']) | {'anti_version.txt'}
+        seen = set()
+        with tarfile.open(archive, 'r|gz') as source:
+            for entry in source:
+                parts = entry.name.split('/')
+                if len(parts) < 2 or parts[-2] != 'images' or parts[-1] not in wanted:
+                    continue
+                if not entry.isfile() or entry.name.startswith('/') or '..' in parts or parts[-1] in seen:
+                    raise ValueError('Unexpected stock ROM archive member')
+                name = parts[-1]
+                if name == 'anti_version.txt' and entry.size > 32:
+                    raise ValueError('Unexpected anti-version file size')
+                expected = entry.size if name == 'anti_version.txt' else lock['images'][name]['bytes']
+                with source.extractfile(entry) as incoming, (images / name).open('xb') as output:
+                    copy_bounded(incoming, output, expected)
+                seen.add(name)
+        if seen != wanted:
+            raise ValueError(f'Incomplete ROM archive: {wanted - seen}')
+    verify_images(images, lock)
+    return images
 
 
 def split_device_trees(images, destination):

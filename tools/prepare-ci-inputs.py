@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Prepare pinned OS3 inputs on a fresh Linux GitHub Actions runner."""
+"""Prepare the pinned OS4 ZIP, original KernelSU and Ubuntu build inputs."""
+import argparse
 import importlib.util
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
 import subprocess
-import tarfile
 import urllib.parse
 
 PROJECT = Path(__file__).resolve().parents[1]
@@ -22,6 +23,8 @@ def run(*args, **kwargs):
 
 
 def download(url, destination, digest, size=None):
+    if not url or any(ord(c) < 32 for c in url):
+        raise ValueError('Set the Android ROM URL input to a current HTTPS direct link')
     parsed = urllib.parse.urlsplit(url)
     if parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password:
         raise ValueError('Download inputs must be HTTPS URLs without credentials')
@@ -29,8 +32,12 @@ def download(url, destination, digest, size=None):
     if destination.is_file() and stock.sha(destination) == digest:
         return
     temporary = destination.with_suffix(destination.suffix + '.part')
-    run('curl', '--fail', '--location', '--proto', '=https', '--proto-redir', '=https',
-        '--retry', '4', '--retry-delay', '5', '--output', temporary, url)
+    try:
+        run('curl', '--fail', '--location', '--proto', '=https', '--proto-redir', '=https',
+            '--retry', '4', '--retry-delay', '5', '--output', temporary, url)
+    except subprocess.CalledProcessError:
+        # Signed URL query strings are temporary access credentials, not log data.
+        raise ValueError('ROM download failed; check URL validity and expiration') from None
     if stock.sha(temporary) != digest or (size is not None and temporary.stat().st_size != size):
         temporary.unlink()
         raise ValueError(f'Download identity mismatch: {destination.name}')
@@ -38,24 +45,7 @@ def download(url, destination, digest, size=None):
 
 
 def unpack_rom(archive, images):
-    wanted = set(stock.table()['images']) | {'anti_version.txt'}
-    images.mkdir(parents=True, exist_ok=False)
-    seen = set()
-    # Copy selected regular image files only, never vendor flashing scripts,
-    # persist, GPT or userdata. Do not extract arbitrary archive paths.
-    with tarfile.open(archive, 'r|gz') as source:
-        for entry in source:
-            parts = PurePosixPath(entry.name).parts
-            if len(parts) < 2 or parts[-2] != 'images' or parts[-1] not in wanted:
-                continue
-            if not entry.isfile() or entry.name.startswith('/') or '..' in parts or parts[-1] in seen:
-                raise ValueError('Unexpected stock ROM archive member')
-            with source.extractfile(entry) as incoming, (images / parts[-1]).open('wb') as output:
-                shutil.copyfileobj(incoming, output)
-            seen.add(parts[-1])
-    if seen != wanted:
-        raise ValueError(f'Incomplete ROM archive: {wanted - seen}')
-    stock.verify_images(images)
+    return stock.unpack_rom(archive, images)
 
 
 def copy(source, target):
@@ -118,15 +108,33 @@ def checkout(url, commit, destination):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--rom-archive', type=Path, help='Use the exact local ZIP instead of downloading')
+    stages = parser.add_mutually_exclusive_group()
+    stages.add_argument('--rom-only', action='store_true', help='Normalize ROM and check device trees, then stop')
+    stages.add_argument('--download-only', action='store_true', help='Cache the pinned ZIP before lengthy runner setup')
+    args = parser.parse_args()
     lock = stock.table()
-    archive = LOCAL / 'downloads' / lock['archive']['name']
-    download(lock['archive']['url'], archive, lock['archive']['sha256'], lock['archive']['bytes'])
+    archive = args.rom_archive.resolve() if args.rom_archive else LOCAL / 'downloads' / lock['archive']['name']
+    if not args.rom_archive:
+        download(os.environ.get('ANDROID_ROM_URL') or lock['archive'].get('url'), archive,
+                 lock['archive']['sha256'], lock['archive']['bytes'])
+    if args.download_only:
+        if args.rom_archive and (archive.stat().st_size != lock['archive']['bytes'] or
+                                 stock.sha(archive) != lock['archive']['sha256']):
+            raise ValueError('ROM archive identity mismatch')
+        print('Pinned ROM ZIP cached and verified; no URL is stored in the artifacts.')
+        return
     rom = LOCAL / 'roms/liuqin' / lock['rom']
     images = rom / 'images'
     unpack_rom(archive, images)
-    archive.unlink()
+    if not args.rom_archive:
+        archive.unlink()
     base, overlays = stock.split_device_trees(images, rom / 'analysis')
     run('python3', PROJECT / 'tools/lib/verify-stock-dt.py', '--base-dir', base, '--overlay-dir', overlays)
+    if args.rom_only:
+        print('ROM normalization and stock device-tree checks passed. No tablet was accessed.')
+        return
     sevenzip_dir = LOCAL / '7zip'
     sevenzip_dir.mkdir(parents=True)
     sevenzip_archive = LOCAL / 'downloads/7z2603-linux-x64.tar.xz'
@@ -165,7 +173,7 @@ def main():
     assets = LOCAL / 'downloads/kernelsu' / ksu['version']
     run('python3', PROJECT / 'tools/patch-android-boot-ksu.py', '--boot', images / 'boot.img',
         '--ksuinit', assets / ksu['assets']['ksuinit']['name'], '--lkm', assets / ksu['assets']['lkm']['name'],
-        '--out', PROJECT / 'out/android-os3/boot-ksu.img', '--report', PROJECT / 'out/android-os3/patch-report.txt')
+        '--out', PROJECT / 'out/android-os4/boot-ksu.img', '--report', PROJECT / 'out/android-os4/patch-report.txt')
     run('sudo', '-n', 'python3', PROJECT / 'tools/prepare-image-inputs.py', 'run', cwd=PROJECT)
 
 

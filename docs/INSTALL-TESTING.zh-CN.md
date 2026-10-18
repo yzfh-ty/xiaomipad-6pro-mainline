@@ -1,8 +1,8 @@
 # 安装步骤
 
-> **OS3 分支状态：** 本分支锁定 OS3.0.7.0.VMYCNXM，状态为 `OFFLINE_INSPECTED`，尚未真机验证。
+> **OS4 分支状态：** 本分支锁定所审阅的 OS4.0.2.5.XMYCNXM 移植 ZIP，状态为 `OFFLINE_INSPECTED`，新流程尚未编译测试或真机验证。
 > 下文原有验收记录属于上游基线；本分支产物需重新验证试装与双向切换。
-> 构建方法见 [OS3 Actions 指南](OS3-ACTIONS.zh-CN.md)。
+> 构建与 ZIP 归一化方法见 [OS4 Actions 指南](OS4-ACTIONS.zh-CN.md)。全新安装时使用本次生成的 KSU boot，不使用原包的 Magisk boot。
 
 [English](INSTALL-TESTING.md)
 
@@ -49,7 +49,7 @@ v0.6.0 已在同一台 256 GB 机型以 `--layout dual --keep-home --no-backup` 
 `dual` 另外清零 `userdata` 与 `metadata` 的前 16 MiB，使 Android 首次开机重新格式化这两个分区，
 而不是读到过期的文件级加密密钥；并用用户提供的 ROM 目录恢复 A 槽的原厂 Android 分区。
 只有与设备当前内容不一致的镜像才会被写入，且只写入 `_a` 后缀的分区。
-`super` 是 Android 稀疏镜像，无法与分区内容逐字节比对，因此选择 `dual` 时总会写入。
+`super` 是否为 Android 稀疏镜像由版本清单记录。当前 OS4 ZIP 解压得到 raw 镜像，可与分区内容比对；稀疏镜像则总会写入。
 
 ROM 中的 `boot.img` 例外，不会被刷入：`boot_a` 写入本项目的 boot 镜像，`boot_b` 写入同一镜像
 作为 Bootloader 的回退副本，Android 的 boot 镜像则保存在 `linux_root` 上，供下文所述的切换工具使用。
@@ -57,11 +57,11 @@ ROM 中的 `boot.img` 例外，不会被刷入：`boot_a` 写入本项目的 boo
 
 ### 双系统模式的前提
 
-`--layout dual` 必须提供 `--rom-dir`，指向解包后的原厂小米 Fastboot ROM 目录。
-原厂 ROM 从上游取得，不在本项目重复托管。安装器会用 `liuqin-rom-images.json` 中固定的校验值
+`--layout dual` 必须提供 `--rom-dir`。当前 OS4 ZIP 需要先用候选包中的 `prepare-rom.py` 生成含 `images/` 的归一化目录，不能直接指向原包解压目录。
+完整 ZIP 由用户另行提供，不在本项目重复托管。安装器会用 `liuqin-rom-images.json` 中固定的校验值
 核对 `boot.img`、`vendor_boot.img`、`dtbo.img`、`vbmeta.img`、`vbmeta_system.img`、`super.img`、
 `NON-HLOS.bin`、`BTFM.bin` 与 `dspso.bin`，
-不匹配即拒绝。这些校验值对应本移植验证过的确切 ROM 版本；更换版本需要重新完成该验证。
+不匹配即拒绝。这些校验值对应本分支离线审阅的确切 ROM 包；更换版本需要重新审阅和验证。
 
 `NON-HLOS.bin` 恢复包含 WLAN 与 DSP 固件的 `modem_a`，`BTFM.bin` 恢复 `bluetooth_a`，
 `dspso.bin` 恢复 `dsp_a`。

@@ -214,6 +214,8 @@ def main():
             with zipfile.ZipFile(dualboot_tools, 'w', zipfile.ZIP_DEFLATED) as archive:
                 for name in ('tools/fetch-kernelsu-assets.sh',
                              'tools/patch-android-boot-ksu.py',
+                             'tools/prepare-rom.py', 'tools/lib/stock-rom.py',
+                             'tools/lib/liuqin-rom-images.json',
                              'tools/lib/kernelsu-assets.json',
                              'device/android/ksu-boot-ubuntu/README.md', 'LICENSE', 'NOTICE'):
                     entry = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
@@ -226,8 +228,11 @@ def main():
                      'install.py': project / 'tools/install-liuqin.py',
                      'liuqin_layout.py': project / 'tools/lib/liuqin_layout.py',
                      'liuqin-rom-images.json': project / 'tools/lib/liuqin-rom-images.json',
+                     'prepare-rom.py': project / 'tools/prepare-rom.py',
+                     'stock-rom.py': project / 'tools/lib/stock-rom.py',
                      'INSTALL-TESTING.md': project / 'docs/INSTALL-TESTING.md',
                      'INSTALL-TESTING.zh-CN.md': project / 'docs/INSTALL-TESTING.zh-CN.md',
+                     'OS4-ACTIONS.zh-CN.md': project / 'docs/OS4-ACTIONS.zh-CN.md',
                      'NOTICE': project / 'NOTICE', 'LICENSE': project / 'LICENSE',
                      ksu_modules[0].name: ksu_modules[0], 'dualboot-tools.zip': dualboot_tools,
                      'FINGERPRINT.md': project / 'docs/FINGERPRINT.md',
@@ -254,6 +259,7 @@ def main():
                 with source.open('rb') as stream:
                     hashes[name] = hashlib.file_digest(stream, 'sha256').hexdigest()
             metadata = {'device': 'liuqin', 'status': 'OFFLINE_ASSEMBLED',
+                        'android_rom': json.loads((project / 'tools/lib/liuqin-rom-images.json').read_text())['rom'],
                         'kernel_commit': lock['commit'],
                         'project_commit': subprocess.check_output(['git', '-C', str(project), 'rev-parse', 'HEAD'], env=env, text=True).strip(),
                         'project_dirty': bool(subprocess.check_output(['git', '-C', str(project), 'status', '--porcelain'], env=env)),

@@ -1,5 +1,7 @@
 # OS3 分支：手动构建完整双系统候选包
 
+> 历史 OS3 分支说明。当前分支已切换到固定 OS4 ZIP，请使用 [OS4 Actions 指南](OS4-ACTIONS.zh-CN.md)；下面的 OS3 参数和产物名不适用于当前代码。
+
 本分支将 Android 侧基线改为 **OS3.0.7.0.VMYCNXM / Android 15**。
 Ubuntu 仍使用 `kernel/source.json` 固定的主线内核，以及仓库已有的 Ubuntu 板级固件。
 没有修改内核源码。Android 新 ROM 中的 DSP 与 Ubuntu 的固定 DSP 固件是两组独立输入。

@@ -1,5 +1,5 @@
 {
-  "rom": "OS3.0.7.0.VMYCNXM",
+  "rom": "OS4.0.2.5.XMYCNXM",
   "base": {
     "dtb-00.dtb": "33acf7ce6f8a634e56304da9fdaca1c255994f1812192f7cd479ceed15d7bcc4",
     "dtb-01.dtb": "ce90f88b645ffdcc844ede7b0c57162c082079c4ee162f6b6e262389066b2d31",
@@ -61,5 +61,6 @@
     "entry.41": "0500f15899876a0607ae6c0ab3a535ad9a4a6bc75c8802c519c2df0a260a7511",
     "entry.42": "10e5e91c453f3c00103e1d91a125b9d9fab362bd092f968da863b0c91f2b5258",
     "entry.43": "98d117d95e5fdd8a92b339a665c3b7c9983364c025acb4276d93c924759389b2"
-  }
+  },
+  "baseline": "Device-tree bytes are identical to the audited OS3.0.7.0.VMYCNXM baseline"
 }

@@ -24,9 +24,13 @@ trees = load('trees', 'tools/lib/verify-stock-dt.py')
 installer = load('installer', 'tools/install-liuqin.py')
 ci = load('ci', 'tools/prepare-ci-inputs.py')
 lock = stock.table()
-assert lock['rom'] == 'OS3.0.7.0.VMYCNXM'
+assert lock['rom'] == 'OS4.0.2.5.XMYCNXM'
 assert lock['status'] == 'OFFLINE_INSPECTED'
-assert lock['android_version'] == 15 and lock['anti_version'] == 1
+assert lock['android_version'] == 17 and lock['anti_version'] == 1
+assert lock['archive']['format'] == 'zip'
+assert lock['archive']['members']['boot.img'] == 'boot_official.img'
+assert lock['archive']['compression']['super.img'] == 'zstd'
+assert not lock['images']['super.img']['sparse']
 dt = json.loads((PROJECT / 'tools/lib/liuqin-stock-dt.json').read_text())
 assert dt['rom'] == lock['rom'] and len(dt['base']) == 14 and len(dt['overlays']) == 44
 
@@ -92,4 +96,4 @@ with tempfile.TemporaryDirectory() as directory:
             else:
                 raise AssertionError('Unacceptable download URL')
 
-print('PASS: OS3 identities, DT tampering/truncation, anti checks and download URL policy')
+print('PASS: OS4 identities, DT tampering/truncation, anti checks and download URL policy')

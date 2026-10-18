@@ -1,8 +1,10 @@
 # Installation Steps
 
-> This branch pins OS3.0.7.0.VMYCNXM as `OFFLINE_INSPECTED`, without device validation.
+> This branch pins the reviewed OS4.0.2.5.XMYCNXM port ZIP as `OFFLINE_INSPECTED`. The new flow has not been compiled, tested or device-validated.
 > Historical acceptance below applies to the upstream baseline. Revalidate installation
-> and both switching directions. See [manual OS3 Actions builds](OS3-ACTIONS.zh-CN.md).
+> and both switching directions. See [OS4 Actions and ZIP normalization](OS4-ACTIONS.zh-CN.md).
+> Run the bundle's `prepare-rom.py` on the unchanged ZIP before using its output with `--rom-dir`.
+> Use the newly generated KernelSU boot override, not the package's Magisk boot.
 
 Initial installation and first boot have been tested on a 256 GB unit. The
 128 GB and 512 GB variants are admitted by the rules in the
@@ -58,9 +60,9 @@ and action — and requires the same interactive confirmation as before.
 that Android reformats both on first boot instead of finding stale file-based
 encryption keys, and restores the stock Android partitions of slot A from a ROM
 directory you supply. Only the images whose bytes differ from what the tablet
-already holds are written, and only to `_a` partition names. `super` is an
-Android sparse image and cannot be compared against the partition, so it is
-always written when the dual layout is selected.
+already holds are written, and only to `_a` partition names. The manifest records
+whether `super` is sparse. The current OS4 ZIP expands to a raw image that can be
+compared with the partition; sparse inputs must always be written.
 
 The ROM's `boot.img` is the exception: it is not flashed. `boot_a` receives
 the project boot image, `boot_b` receives the same image as the bootloader's
@@ -70,14 +72,15 @@ never writes a `_b` partition other than `boot_b`.
 
 ### Dual-boot prerequisites
 
-`--layout dual` requires `--rom-dir`, pointing at an extracted stock Xiaomi
-Fastboot ROM. The original ROM is an upstream input and is not redistributed
-here. The installer verifies `boot.img`, `vendor_boot.img`, `dtbo.img`,
+`--layout dual` requires `--rom-dir`. For this OS4 ZIP, first run the bundle's
+`prepare-rom.py` to create the normalized directory containing `images/`.
+Do not point it directly at the original extracted ZIP. The full ROM is supplied
+separately and is not redistributed here. The installer verifies `boot.img`, `vendor_boot.img`, `dtbo.img`,
 `vbmeta.img`, `vbmeta_system.img`, `super.img`, `NON-HLOS.bin`, `BTFM.bin` and
 `dspso.bin` against the checksums pinned
 in `liuqin-rom-images.json`, and refuses any other release. Those checksums
-identify the exact ROM this port was validated against; a different ROM
-requires repeating that validation.
+identify the exact ROM package reviewed offline for this branch; a different ROM
+requires another review and validation.
 
 `NON-HLOS.bin` restores `modem_a`, which contains the WLAN and DSP firmware;
 `BTFM.bin` restores `bluetooth_a`, and `dspso.bin` restores `dsp_a`. A missing or damaged firmware filesystem can

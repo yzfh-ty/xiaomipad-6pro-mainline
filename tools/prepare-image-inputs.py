@@ -36,6 +36,8 @@ import urllib.request
 from pathlib import Path
 
 PROJECT = Path(__file__).resolve().parents[1]
+ROM_VERSION = json.loads((PROJECT / 'tools/lib/liuqin-rom-images.json').read_text())['rom']
+ROM_ROOT = PROJECT / 'tools/local/roms/liuqin' / ROM_VERSION
 CACHE_DIR = PROJECT / 'tools/local/artifacts-cache'
 CACHE_JSON = CACHE_DIR / 'cache.json'
 PREPARED = PROJECT / 'out/prepared-inputs'
@@ -63,8 +65,7 @@ def dir_content_hash(path: Path) -> str:
 # --- fingerprints -----------------------------------------------------------
 
 def sensors_fingerprint() -> dict:
-    rom = (PROJECT / 'tools/local/roms/liuqin/OS3.0.7.0.VMYCNXM/extracted/'
-           'super-work/vendor-extract/etc/sensors')
+    rom = ROM_ROOT / 'extracted/super-work/vendor-extract/etc/sensors'
     if not (rom / 'config').is_dir() or not (rom / 'sns_reg_config').is_file():
         raise SystemExit(f'Missing exact-ROM sensor inputs: {rom}')
     return {
@@ -133,6 +134,7 @@ def cache_store(cache: dict, name: str, fp: dict, artifact: Path) -> None:
 def rebuild_sensors(out_dir: Path) -> Path:
     tar = out_dir / 'artifacts/sensor-stack.tar'
     subprocess.run(['sudo', '-n', 'env', 'UPDATE_APT=1', 'OUT_DIR=' + str(out_dir),
+                    'ROM_SENSORS=' + str(ROM_ROOT / 'extracted/super-work/vendor-extract/etc/sensors'),
                     'sh', 'tools/build-liuqin-sensors-stack.sh'],
                    cwd=PROJECT, check=True)
     return tar
@@ -268,8 +270,8 @@ def cmd_run() -> None:
         'FIRMWARE_MANIFEST_SHA256': sha256_file(firmware_manifest),
         'AUDIO_TOPOLOGY': str(topology_bin),
         'WLAN_HSP2_TUPLE': str(PROJECT / 'out/wlan-source-check'),
-        'STOCK_OVERLAY_DIR': str(PROJECT / 'tools/local/roms/liuqin/OS3.0.7.0.VMYCNXM/analysis/dtbo'),
-        'STOCK_BASE_DIR': str(PROJECT / 'tools/local/roms/liuqin/OS3.0.7.0.VMYCNXM/analysis/vendor_boot/dtbs'),
+        'STOCK_OVERLAY_DIR': str(ROM_ROOT / 'analysis/dtbo'),
+        'STOCK_BASE_DIR': str(ROM_ROOT / 'analysis/vendor_boot/dtbs'),
         'SENSOR_STACK_TAR': str(sensor_tar),
         'SENSOR_STACK_SHA256': sha256_file(sensor_tar),
         'POWER_SETTINGS_BINARY': str(settings_bin),

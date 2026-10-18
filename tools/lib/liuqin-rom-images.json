@@ -1,21 +1,16 @@
 {
   "comment": [
-    "Pinned identities of the stock Xiaomi Fastboot ROM images that the dual",
-    "layout writes to the Android slot.  These are checksums of a published",
-    "vendor package, not secrets: they exist so that the installer refuses a",
-    "ROM directory that is not the pinned release. Device validation is",
-    "recorded separately. The ROM is an upstream input, not redistributed",
-    "here.  'partition' is always the _a slot name (or the non-slotted super);",
-    "the installer never writes _b apart from boot_b with the project image.",
-    "boot.img is the exception to flashing: in the dual layout both systems",
-    "boot from slot A, so boot_a receives the project image and boot.img (or",
-    "the --android-boot override) is stored on the Ubuntu root, from where",
-    "liuqin-switch writes it to the 'partition' named here.",
-    "'sparse' marks an Android sparse image, whose bytes cannot be compared",
-    "against the partition content, so it is always flashed when requested."
+    "Pinned identities of the reviewed third-party OS4 liuqin ZIP; not an official stock ROM.",
+    "Only these Android slot A images are admitted. Vendor flashing scripts, Magisk, FRP, GPT and userdata are never extracted or executed.",
+    "boot.img is normalized from boot_official.img, which contains the package custom kernel but has an unmodified, non-Magisk ramdisk.",
+    "KernelSU v3.3.0 patches that ramdisk without replacing the custom kernel. Kernel module loading still requires device validation.",
+    "Ubuntu retains the validated board firmware and its own kernel. OS4 DTB/DTBO bytes match the reviewed OS3 baseline.",
+    "The ZIP has no anti_version.txt. The anti=1 baseline is derived from byte-equivalent protected OS3 base firmware; it is never inferred as zero.",
+    "super.img is a raw image expanded from super.zst, not an Android sparse image.",
+    "The download URL is supplied at workflow dispatch; signed temporary URLs are not committed here."
   ],
-  "rom": "OS3.0.7.0.VMYCNXM",
-  "package": "liuqin_images_OS3.0.7.0.VMYCNXM_15.0",
+  "rom": "OS4.0.2.5.XMYCNXM",
+  "package": "liuqin-ota_full-OS4.0.2.5.XMYCNXM-user-17.0-f077f083f2-2in1-Root",
   "anti_version": 1,
   "images": {
     "BTFM.bin": {
@@ -31,12 +26,12 @@
     "boot.img": {
       "partition": "boot_a",
       "bytes": 201326592,
-      "sha256": "9dd14961ae15aa10d162711d57972c5c62e7af23f2dabc22bac57b24bc185e4b"
+      "sha256": "c04ae497f5876300200fc0f36f59e25ae9a5bd1d73011d559f1531e23a7d3cdd"
     },
     "vendor_boot.img": {
       "partition": "vendor_boot_a",
       "bytes": 100663296,
-      "sha256": "752b75972f50a71b58ea0da2f227525f4eb16982fba1ea60449c5f63a8bc1b40"
+      "sha256": "bd3ce5c315f2277e04caa76bf3526256c2a191796e3cb5d622f0361cc22988b1"
     },
     "dtbo.img": {
       "partition": "dtbo_a",
@@ -51,26 +46,43 @@
     "vbmeta.img": {
       "partition": "vbmeta_a",
       "bytes": 8192,
-      "sha256": "b3ad4462082df709be53bed487d60fb55588201d7b0e38237d6468aa71764fd7"
+      "sha256": "25a1e4b6f9eaf421fa9561d7dad68abda5f1825097825c3f835c8f7d40b75b89"
     },
     "vbmeta_system.img": {
       "partition": "vbmeta_system_a",
       "bytes": 4096,
-      "sha256": "9838afb948f0c48c2a5a855c655404c3c9bff4a095151430714288a50572b94f"
+      "sha256": "686fd4f743e41491937a9cb6c47278be70f55632e02ff725e96a9b4b2cedbf62"
     },
     "super.img": {
       "partition": "super",
-      "bytes": 8075319168,
-      "sha256": "eb4911c717428c0f83cadedc23bd4ea7207e6d9b101e9251662b8781e766651b",
-      "sparse": true
+      "bytes": 9126805504,
+      "sha256": "3068f31125fc7da507a1d3f28284745ddbbb4a82e83f52a4de6705a650c5cfff",
+      "sparse": false
     }
   },
   "status": "OFFLINE_INSPECTED",
-  "android_version": 15,
+  "android_version": 17,
   "archive": {
-    "url": "https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com/OS3.0.7.0.VMYCNXM/liuqin_images_OS3.0.7.0.VMYCNXM_20260514.0000.00_15.0_cn_f57d372b08.tgz",
-    "name": "liuqin_images_OS3.0.7.0.VMYCNXM_20260514.0000.00_15.0_cn_f57d372b08.tgz",
-    "bytes": 7541014730,
-    "sha256": "9b33c813b7245ef67b1f55555bb3e769de2f13636e9c04f12bfb3788c5337359"
-  }
+    "name": "liuqin-ota_full-OS4.0.2.5.XMYCNXM-user-17.0-f077f083f2-2in1-Root.zip",
+    "bytes": 7314416178,
+    "sha256": "59b290a7fe6566ac3c03194f64d4a660e3f3ee841a5fedaa9364e5329d5395ce",
+    "format": "zip",
+    "url": null,
+    "members": {
+      "BTFM.bin": "firmware-update/bluetooth.img",
+      "NON-HLOS.bin": "firmware-update/modem.img",
+      "boot.img": "boot_official.img",
+      "vendor_boot.img": "firmware-update/vendor_boot.img",
+      "dtbo.img": "firmware-update/dtbo.img",
+      "dspso.bin": "firmware-update/dsp.img",
+      "vbmeta.img": "firmware-update/vbmeta.img",
+      "vbmeta_system.img": "firmware-update/vbmeta_system.img",
+      "super.img": "super.zst"
+    },
+    "compression": {
+      "super.img": "zstd"
+    }
+  },
+  "anti_version_source": "verified-os3-base-firmware",
+  "base_firmware_reference": "OS3.0.7.0.VMYCNXM / anti_version=1; protected ABL, XBL, TZ and Keymaster match after zero-padding normalization"
 }
